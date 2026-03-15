@@ -3,6 +3,7 @@
 import { CSSProperties, useState, useEffect } from "react";
 import { Header } from "@/components/layout";
 import { Card, Button, Badge, Modal, Input, Table, TableHeader, TableHeaderCell, TableBody, TableRow, TableCell, useToast } from "@/components/ui";
+import { api } from "@/lib/api";
 
 interface EdgeFunction {
   id: string;
@@ -35,7 +36,11 @@ export default function FunctionsPage() {
   useEffect(() => {
     async function fetchFunctions() {
       try {
-        const res = await fetch("/api/functions");
+        const res = await api.get("/api/functions");
+        if (res.status === 401) {
+          window.location.href = "/login";
+          return;
+        }
         const data = await res.json();
         setFunctions(data);
       } catch (error) {
@@ -76,11 +81,7 @@ export default function FunctionsPage() {
 
   const handleCreateFunction = async (name: string, code: string) => {
     try {
-      const res = await fetch("/api/functions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, code }),
-      });
+      const res = await api.post("/api/functions", { name, code });
       
       if (!res.ok) {
         throw new Error("Failed to create function");
@@ -96,11 +97,7 @@ export default function FunctionsPage() {
 
   const handleDeploy = async (functionId: string, code: string) => {
     try {
-      const res = await fetch(`/api/functions/${functionId}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code, status: "deployed" }),
-      });
+      const res = await api.patch(`/api/functions/${functionId}`, { code, status: "deployed" });
       
       if (!res.ok) {
         throw new Error("Failed to deploy function");
@@ -117,9 +114,7 @@ export default function FunctionsPage() {
   const handleDelete = async (functionId: string, functionName: string) => {
     if (confirm(`Are you sure you want to delete function "${functionName}"?`)) {
       try {
-        const res = await fetch(`/api/functions/${functionId}`, {
-          method: "DELETE",
-        });
+        const res = await api.delete(`/api/functions/${functionId}`);
         
         if (!res.ok) {
           throw new Error("Failed to delete function");
@@ -138,11 +133,7 @@ export default function FunctionsPage() {
     if (!selectedFunction) return;
     
     try {
-      const res = await fetch(`/api/functions/${selectedFunction.id}/invoke`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ input: testInput }),
-      });
+      const res = await api.post(`/api/functions/${selectedFunction.id}/invoke`, { input: testInput });
       
       if (!res.ok) {
         throw new Error("Failed to invoke function");

@@ -1,10 +1,19 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { requireProjectAuth } from "@/lib/auth";
 
-// GET /api/tables - List all tables
-export async function GET() {
+// GET /api/tables - List all tables (requires auth)
+export async function GET(request: NextRequest) {
+  const authError = await requireProjectAuth(request);
+  if (authError) return authError;
+
+  const project = (request as any).project;
+
   try {
     const tables = await prisma.table.findMany({
+      where: {
+        projectId: project.id,
+      },
       select: {
         id: true,
         name: true,
@@ -35,8 +44,13 @@ export async function GET() {
   }
 }
 
-// POST /api/tables - Create a new table
-export async function POST(request: Request) {
+// POST /api/tables - Create a new table (requires auth)
+export async function POST(request: NextRequest) {
+  const authError = await requireProjectAuth(request);
+  if (authError) return authError;
+
+  const project = (request as any).project;
+
   try {
     const body = await request.json();
     const { name, schema } = body;
@@ -48,9 +62,12 @@ export async function POST(request: Request) {
       );
     }
 
-    // Check if table already exists
-    const existingTable = await prisma.table.findUnique({
-      where: { name },
+    // Check if table already exists for this project
+    const existingTable = await prisma.table.findFirst({
+      where: { 
+        name,
+        projectId: project.id,
+      },
     });
 
     if (existingTable) {
@@ -64,6 +81,7 @@ export async function POST(request: Request) {
       data: {
         name,
         schema,
+        projectId: project.id,
       },
     });
 

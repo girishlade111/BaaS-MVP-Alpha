@@ -3,6 +3,7 @@
 import { CSSProperties, useState, useEffect, useRef } from "react";
 import { Header } from "@/components/layout";
 import { Card, Button, Badge, Modal, Input, useToast } from "@/components/ui";
+import { api } from "@/lib/api";
 
 interface StorageFile {
   id: string;
@@ -25,7 +26,11 @@ export default function StoragePage() {
   useEffect(() => {
     async function fetchFiles() {
       try {
-        const res = await fetch("/api/storage");
+        const res = await api.get("/api/storage");
+        if (res.status === 401) {
+          window.location.href = "/login";
+          return;
+        }
         const data = await res.json();
         setFiles(data);
       } catch (error) {
@@ -37,6 +42,26 @@ export default function StoragePage() {
     }
     fetchFiles();
   }, [addToast]);
+
+  const handleDeleteFile = async (fileId: string) => {
+    if (confirm(`Are you sure you want to delete this file?`)) {
+      try {
+        const res = await api.delete(`/api/storage/${fileId}`);
+        
+        if (!res.ok) {
+          throw new Error("Failed to delete file");
+        }
+        
+        setFiles(files.filter((f: StorageFile) => f.id !== fileId));
+        if (selectedFile?.id === fileId) {
+          setSelectedFile(null);
+        }
+        addToast("File deleted", "success");
+      } catch (error) {
+        addToast("Failed to delete file", "error");
+      }
+    }
+  };
 
   const containerStyles: CSSProperties = {
     padding: "0 32px 32px",
@@ -295,7 +320,7 @@ export default function StoragePage() {
          <FileDetailModal
            file={selectedFile}
            onClose={() => setSelectedFile(null)}
-           onDelete={handleDeleteFile}
+           onDelete={() => handleDeleteFile(selectedFile.id)}
          />
        )}
     </div>
@@ -314,7 +339,7 @@ function UploadModal({ isOpen, onClose, onUpload }: UploadModalProps) {
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-    const handleFileUpload = async (files: FileList | null) => {
+  const handleFileUpload = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
     
     setIsUploading(true);
@@ -324,10 +349,7 @@ function UploadModal({ isOpen, onClose, onUpload }: UploadModalProps) {
         const formData = new FormData();
         formData.append("file", file);
         
-        const res = await fetch("/api/storage", {
-          method: "POST",
-          body: formData,
-        });
+        const res = await api.post("/api/storage", formData, false);
         
         if (!res.ok) {
           throw new Error(`Failed to upload ${file.name}`);
@@ -344,28 +366,6 @@ function UploadModal({ isOpen, onClose, onUpload }: UploadModalProps) {
       addToast("Failed to upload file", "error");
     } finally {
       setIsUploading(false);
-    }
-  };
-
-  const handleDeleteFile = async (fileId: string) => {
-    if (confirm(`Are you sure you want to delete this file?`)) {
-      try {
-        const res = await fetch(`/api/storage/${fileId}`, {
-          method: "DELETE",
-        });
-        
-        if (!res.ok) {
-          throw new Error("Failed to delete file");
-        }
-        
-        setFiles(files.filter((f) => f.id !== fileId));
-        if (selectedFile?.id === fileId) {
-          setSelectedFile(null);
-        }
-        addToast("File deleted", "success");
-      } catch (error) {
-        addToast("Failed to delete file", "error");
-      }
     }
   };
 

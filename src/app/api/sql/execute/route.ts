@@ -1,8 +1,14 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { requireProjectAuth } from "@/lib/auth";
 
-// POST /api/sql/execute - Execute raw SQL query
-export async function POST(request: Request) {
+// POST /api/sql/execute - Execute raw SQL query (requires auth)
+export async function POST(request: NextRequest) {
+  const authError = await requireProjectAuth(request);
+  if (authError) return authError;
+
+  const project = (request as any).project;
+
   try {
     const body = await request.json();
     const { query } = body;
@@ -38,6 +44,16 @@ export async function POST(request: Request) {
       // Extract columns from the first row if available
       const columns = rowCount > 0 ? Object.keys(serializedResult[0]) : [];
       
+      // Record query in history
+      await prisma.queryHistory.create({
+        data: {
+          query: query.substring(0, 1000),
+          duration: Date.now() - startTime,
+          rowsReturned: rowCount,
+          projectId: project.id,
+        },
+      });
+      
       return NextResponse.json({
         columns,
         rows: serializedResult,
@@ -48,6 +64,16 @@ export async function POST(request: Request) {
       // For INSERT, UPDATE, DELETE, etc., use $executeRaw
       result = await prisma.$executeRawUnsafe(query);
       rowCount = typeof result === 'number' ? result : 0;
+      
+      // Record query in history
+      await prisma.queryHistory.create({
+        data: {
+          query: query.substring(0, 1000),
+          duration: Date.now() - startTime,
+          rowsReturned: rowCount,
+          projectId: project.id,
+        },
+      });
       
       return NextResponse.json({
         columns: [],

@@ -1,18 +1,24 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { requireProjectAuth } from "@/lib/auth";
 
-// POST /api/functions/[id]/invoke - Invoke a function
+// POST /api/functions/[id]/invoke - Invoke a function (requires auth)
 export async function POST(
-  request: Request,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const authError = await requireProjectAuth(request);
+  if (authError) return authError;
+
+  const project = (request as any).project;
+  const { id } = await params;
+
   try {
-    const { id } = await params;
     const body = await request.json();
     const { input } = body;
 
-    const fn = await prisma.edgeFunction.findUnique({
-      where: { id },
+    const fn = await prisma.edgeFunction.findFirst({
+      where: { id, projectId: project.id },
     });
 
     if (!fn) {
@@ -37,7 +43,7 @@ export async function POST(
         functionId: id,
         duration,
         success: true,
-        response: mockResponse,
+        response: JSON.stringify(mockResponse),
       },
     });
 
@@ -50,13 +56,12 @@ export async function POST(
     
     // Log the failed invocation
     try {
-      const { id } = await params;
       await prisma.functionLog.create({
         data: {
           functionId: id,
           duration: 0,
           success: false,
-          response: { error: "Function execution failed" },
+          response: JSON.stringify({ error: "Function execution failed" }),
         },
       });
     } catch {}

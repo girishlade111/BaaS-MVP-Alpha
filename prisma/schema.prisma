@@ -10,12 +10,28 @@ datasource db {
   url      = "file:./dev.db"
 }
 
+model Project {
+  id        String   @id @default(uuid())
+  name      String
+  projectId String   @unique // 8-char alphanumeric, generated once
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations - all data isolated per project
+  tables       Table[]
+  storageFiles StorageFile[]
+  functions    EdgeFunction[]
+  queryHistory QueryHistory[]
+}
+
 model Table {
   id        String   @id @default(uuid())
   name      String   @unique
   schema    String   // Stored as JSON string
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
 }
 
 model QueryHistory {
@@ -24,15 +40,19 @@ model QueryHistory {
   executedAt    DateTime @default(now())
   duration      Int
   rowsReturned  Int
+  projectId     String
+  project       Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
 }
 
 model StorageFile {
-  id        String   @id @default(uuid())
-  name      String
-  path      String
-  size      Int
-  mimeType  String
-  uploadedAt DateTime @default(now())
+  id          String   @id @default(uuid())
+  name        String
+  path        String
+  size        Int
+  mimeType    String
+  uploadedAt  DateTime @default(now())
+  projectId   String
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
 }
 
 model EdgeFunction {
@@ -42,6 +62,8 @@ model EdgeFunction {
   status    String   @default("deployed")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
   logs      FunctionLog[]
 }
 

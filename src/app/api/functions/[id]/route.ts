@@ -1,15 +1,33 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { requireProjectAuth } from "@/lib/auth";
 
-// PUT /api/functions/[id] - Update a function
+// PUT /api/functions/[id] - Update a function (requires auth)
 export async function PUT(
-  request: Request,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const authError = await requireProjectAuth(request);
+  if (authError) return authError;
+
+  const project = (request as any).project;
+  const { id } = await params;
+
   try {
-    const { id } = await params;
     const body = await request.json();
     const { code, status } = body;
+
+    // Verify function belongs to this project
+    const existingFn = await prisma.edgeFunction.findFirst({
+      where: { id, projectId: project.id },
+    });
+
+    if (!existingFn) {
+      return NextResponse.json(
+        { error: "Function not found" },
+        { status: 404 }
+      );
+    }
 
     const fn = await prisma.edgeFunction.update({
       where: { id },
@@ -29,13 +47,30 @@ export async function PUT(
   }
 }
 
-// DELETE /api/functions/[id] - Delete a function
+// DELETE /api/functions/[id] - Delete a function (requires auth)
 export async function DELETE(
-  request: Request,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const authError = await requireProjectAuth(request);
+  if (authError) return authError;
+
+  const project = (request as any).project;
+  const { id } = await params;
+
   try {
-    const { id } = await params;
+    // Verify function belongs to this project
+    const existingFn = await prisma.edgeFunction.findFirst({
+      where: { id, projectId: project.id },
+    });
+
+    if (!existingFn) {
+      return NextResponse.json(
+        { error: "Function not found" },
+        { status: 404 }
+      );
+    }
+
     await prisma.edgeFunction.delete({
       where: { id },
     });

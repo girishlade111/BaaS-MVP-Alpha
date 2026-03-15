@@ -1,11 +1,106 @@
 "use client";
 
-import { CSSProperties, useState } from "react";
+import { CSSProperties, useState, useEffect } from "react";
 import { Header } from "@/components/layout";
 import { Card, Button, Input, Badge, Table, TableHeader, TableHeaderCell, TableBody, TableRow, TableCell, Modal, useToast } from "@/components/ui";
+import { api } from "@/lib/api";
+import { useAuth } from "@/contexts/AuthContext";
+
+interface ProjectInfo {
+  name: string;
+  projectId: string;
+  createdAt: string;
+}
 
 export default function SettingsPage() {
   const { addToast } = useToast();
+  const { project, updateProjectName, logout } = useAuth();
+  const [projectInfo, setProjectInfo] = useState<ProjectInfo | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [editingName, setEditingName] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [savingName, setSavingName] = useState(false);
+
+  useEffect(() => {
+    async function fetchProjectInfo() {
+      try {
+        const res = await api.get("/api/projects/me");
+        if (res.ok) {
+          const data = await res.json();
+          setProjectInfo(data);
+          setNewName(data.name);
+        }
+      } catch (error) {
+        console.error("Failed to fetch project info:", error);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchProjectInfo();
+  }, []);
+
+  const handleSaveName = async () => {
+    if (!newName.trim() || newName === projectInfo?.name) {
+      setEditingName(false);
+      return;
+    }
+
+    setSavingName(true);
+    try {
+      const res = await api.patch("/api/projects/me", { name: newName.trim() });
+      if (res.ok) {
+        const data = await res.json();
+        setProjectInfo({ ...projectInfo!, name: data.name });
+        updateProjectName(data.name);
+        addToast("Project name updated", "success");
+      } else {
+        const data = await res.json();
+        addToast(data.error || "Failed to update name", "error");
+      }
+    } catch (error) {
+      addToast("Failed to update name", "error");
+    } finally {
+      setSavingName(false);
+      setEditingName(false);
+    }
+  };
+
+  const handleDeleteProject = async () => {
+    addToast("Project deletion is not available in the MVP", "info");
+  };
+
+  const handleLogout = () => {
+    logout();
+    window.location.href = "/";
+  };
+
+  const copyToClipboard = (text: string, message: string) => {
+    navigator.clipboard.writeText(text);
+    addToast(message, "success");
+  };
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+  };
+
+  if (loading) {
+    return (
+      <div
+        style={{
+          padding: "0 32px 32px",
+          maxWidth: "900px",
+          margin: "0 auto",
+          color: "var(--text-secondary)",
+        }}
+      >
+        Loading...
+      </div>
+    );
+  }
 
   const containerStyles: CSSProperties = {
     padding: "0 32px 32px",
@@ -28,11 +123,6 @@ export default function SettingsPage() {
     borderBottom: "1px solid var(--border)",
   };
 
-  const copyToClipboard = (text: string, message: string) => {
-    navigator.clipboard.writeText(text);
-    addToast(message, "success");
-  };
-
   return (
     <div style={containerStyles} className="page-transition">
       <Header
@@ -49,23 +139,48 @@ export default function SettingsPage() {
               <div style={{ fontWeight: 500, marginBottom: "4px" }}>Project Name</div>
               <div style={{ fontSize: "13px", color: "var(--text-secondary)" }}>Your project display name</div>
             </div>
-            <div style={{ fontFamily: "var(--font-mono)", color: "var(--accent-primary)" }}>
-              DevDB Project
-            </div>
+            {editingName ? (
+              <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                <Input
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleSaveName()}
+                  autoFocus
+                  style={{ width: "200px" }}
+                />
+                <Button variant="primary" size="sm" onClick={handleSaveName} disabled={savingName}>
+                  {savingName ? "Saving..." : "Save"}
+                </Button>
+                <Button variant="ghost" size="sm" onClick={() => setEditingName(false)}>
+                  Cancel
+                </Button>
+              </div>
+            ) : (
+              <div
+                style={{
+                  fontFamily: "var(--font-mono)",
+                  color: "var(--accent-primary)",
+                  cursor: "pointer",
+                }}
+                onClick={() => setEditingName(true)}
+              >
+                {projectInfo?.name}
+              </div>
+            )}
           </div>
           <div style={rowStyles}>
             <div>
               <div style={{ fontWeight: 500, marginBottom: "4px" }}>Project ID</div>
-              <div style={{ fontSize: "13px", color: "var(--text-secondary)" }}>Unique project identifier</div>
+              <div style={{ fontSize: "13px", color: "var(--text-secondary)" }}>Unique project identifier (cannot be changed)</div>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-              <code style={{ fontFamily: "var(--font-mono)", fontSize: "12px", color: "var(--text-secondary)" }}>
-                prj_abc123xyz789
+              <code style={{ fontFamily: "var(--font-mono)", fontSize: "14px", color: "var(--text-secondary)" }}>
+                {projectInfo?.projectId}
               </code>
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => copyToClipboard("prj_abc123xyz789", "Project ID copied")}
+                onClick={() => copyToClipboard(projectInfo?.projectId || "", "Project ID copied")}
               >
                 Copy
               </Button>
@@ -77,179 +192,34 @@ export default function SettingsPage() {
               <div style={{ fontSize: "13px", color: "var(--text-secondary)" }}>Project creation date</div>
             </div>
             <div style={{ fontFamily: "var(--font-mono)", color: "var(--text-secondary)" }}>
-              January 15, 2024
+              {projectInfo?.createdAt ? formatDate(projectInfo.createdAt) : "Unknown"}
             </div>
           </div>
         </Card>
       </section>
 
-      {/* Database Connection */}
+      {/* Session Info */}
       <section style={sectionStyles}>
-        <h2 style={{ fontSize: "18px", margin: 0 }}>Database Connection</h2>
+        <h2 style={{ fontSize: "18px", margin: 0 }}>Session</h2>
         <Card>
           <div style={{ padding: "16px 0" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <div>
-                <div style={{ fontWeight: 500, marginBottom: "4px" }}>Connection String</div>
+                <div style={{ fontWeight: 500, marginBottom: "4px" }}>Active Session</div>
                 <div style={{ fontSize: "13px", color: "var(--text-secondary)" }}>
-                  PostgreSQL connection URL
+                  Your credentials are stored in browser sessionStorage
                 </div>
               </div>
-              <Badge variant="success">Connected</Badge>
-            </div>
-            <div
-              style={{
-                background: "var(--bg-primary)",
-                border: "1px solid var(--border)",
-                borderRadius: "var(--radius-md)",
-                padding: "12px 16px",
-                fontFamily: "var(--font-mono)",
-                fontSize: "12px",
-                color: "var(--text-secondary)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-              }}
-            >
-              <code>postgresql://user:****@db.devdb.io:5432/devdb_project</code>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() =>
-                  copyToClipboard(
-                    "postgresql://user:password@db.devdb.io:5432/devdb_project",
-                    "Connection string copied"
-                  )
-                }
-              >
-                Copy
-              </Button>
+              <Badge variant="success">Active</Badge>
             </div>
             <div style={{ marginTop: "16px", fontSize: "12px", color: "var(--text-muted)" }}>
-              ⚠️ Never share your connection string publicly. Rotate it if exposed.
+              Session is cleared when you close the browser tab.
             </div>
-          </div>
-        </Card>
-      </section>
-
-      {/* API Keys */}
-      <section style={sectionStyles}>
-        <h2 style={{ fontSize: "18px", margin: 0 }}>API Keys</h2>
-        <Card>
-          <div style={{ padding: "16px 0" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
-              <div>
-                <div style={{ fontWeight: 500 }}>Service Role Key</div>
-                <div style={{ fontSize: "13px", color: "var(--text-secondary)" }}>
-                  Full access API key - keep this secret
-                </div>
-              </div>
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => addToast("New API key generated", "success")}
-              >
-                Regenerate
+            <div style={{ marginTop: "16px" }}>
+              <Button variant="secondary" size="sm" onClick={handleLogout}>
+                Sign Out
               </Button>
             </div>
-            <div
-              style={{
-                background: "var(--bg-primary)",
-                border: "1px solid var(--border)",
-                borderRadius: "var(--radius-md)",
-                padding: "12px 16px",
-                fontFamily: "var(--font-mono)",
-                fontSize: "12px",
-                color: "var(--text-secondary)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-              }}
-            >
-              <code>sk_test_abcdefghijklmnopqrstuvwxyz123456</code>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() =>
-                  copyToClipboard("sk_test_abcdefghijklmnopqrstuvwxyz123456", "API key copied")
-                }
-              >
-                Copy
-              </Button>
-            </div>
-          </div>
-        </Card>
-      </section>
-
-      {/* Environment Variables */}
-      <section style={sectionStyles}>
-        <h2 style={{ fontSize: "18px", margin: 0 }}>Environment Variables</h2>
-        <Card padding="none">
-          <Table>
-            <TableHeader>
-              <TableHeaderCell>Key</TableHeaderCell>
-              <TableHeaderCell>Value</TableHeaderCell>
-              <TableHeaderCell align="right">Actions</TableHeaderCell>
-            </TableHeader>
-            <TableBody>
-              <TableRow>
-                <TableCell>
-                  <span style={{ fontFamily: "var(--font-mono)", color: "var(--accent-primary)" }}>
-                    DATABASE_URL
-                  </span>
-                </TableCell>
-                <TableCell>
-                  <span style={{ fontFamily: "var(--font-mono)", color: "var(--text-secondary)" }}>
-                    postgresql://****
-                  </span>
-                </TableCell>
-                <TableCell align="right">
-                  <Button variant="ghost" size="sm">Edit</Button>
-                </TableCell>
-              </TableRow>
-              <TableRow>
-                <TableCell>
-                  <span style={{ fontFamily: "var(--font-mono)", color: "var(--accent-primary)" }}>
-                    STORAGE_BUCKET
-                  </span>
-                </TableCell>
-                <TableCell>
-                  <span style={{ fontFamily: "var(--font-mono)", color: "var(--text-secondary)" }}>
-                    devdb-files
-                  </span>
-                </TableCell>
-                <TableCell align="right">
-                  <Button variant="ghost" size="sm">Edit</Button>
-                </TableCell>
-              </TableRow>
-              <TableRow>
-                <TableCell>
-                  <span style={{ fontFamily: "var(--font-mono)", color: "var(--accent-primary)" }}>
-                    MAX_UPLOAD_SIZE
-                  </span>
-                </TableCell>
-                <TableCell>
-                  <span style={{ fontFamily: "var(--font-mono)", color: "var(--text-secondary)" }}>
-                    10MB
-                  </span>
-                </TableCell>
-                <TableCell align="right">
-                  <Button variant="ghost" size="sm">Edit</Button>
-                </TableCell>
-              </TableRow>
-            </TableBody>
-          </Table>
-          <div style={{ padding: "16px" }}>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => addToast("Add variable modal coming soon", "info")}
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M12 5v14M5 12h14" />
-              </svg>
-              Add Variable
-            </Button>
           </div>
         </Card>
       </section>
@@ -271,11 +241,7 @@ export default function SettingsPage() {
               <Button
                 variant="danger"
                 size="sm"
-                onClick={() => {
-                  if (confirm("Are you sure? This action cannot be undone.")) {
-                    addToast("Project deletion coming soon", "info");
-                  }
-                }}
+                onClick={handleDeleteProject}
               >
                 Delete Project
               </Button>

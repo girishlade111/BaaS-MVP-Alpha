@@ -1,10 +1,19 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { requireProjectAuth } from "@/lib/auth";
 
-// GET /api/storage - List all files
-export async function GET() {
+// GET /api/storage - List all files (requires auth)
+export async function GET(request: NextRequest) {
+  const authError = await requireProjectAuth(request);
+  if (authError) return authError;
+
+  const project = (request as any).project;
+
   try {
     const files = await prisma.storageFile.findMany({
+      where: {
+        projectId: project.id,
+      },
       orderBy: { uploadedAt: "desc" },
     });
 
@@ -18,8 +27,13 @@ export async function GET() {
   }
 }
 
-// POST /api/storage/upload - Upload a file
-export async function POST(request: Request) {
+// POST /api/storage - Upload a file (requires auth)
+export async function POST(request: NextRequest) {
+  const authError = await requireProjectAuth(request);
+  if (authError) return authError;
+
+  const project = (request as any).project;
+
   try {
     const formData = await request.formData();
     const file = formData.get("file") as File;
@@ -38,9 +52,10 @@ export async function POST(request: Request) {
     const storageFile = await prisma.storageFile.create({
       data: {
         name: file.name,
-        path: `/files/${file.name}`,
+        path: `/files/${project.id}/${file.name}`,
         size: buffer.length,
         mimeType: file.type,
+        projectId: project.id,
       },
     });
 

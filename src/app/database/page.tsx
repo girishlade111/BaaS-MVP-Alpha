@@ -4,6 +4,7 @@ import { CSSProperties, useState, useEffect } from "react";
 import { Header } from "@/components/layout";
 import { Card, Button, Table, TableHeader, TableHeaderCell, TableBody, TableRow, TableCell, Badge, Modal, Input } from "@/components/ui";
 import { useToast } from "@/components/ui";
+import { api } from "@/lib/api";
 
 interface DbTable {
   id: string;
@@ -34,7 +35,11 @@ export default function DatabasePage() {
   useEffect(() => {
     async function fetchTables() {
       try {
-        const res = await fetch("/api/tables");
+        const res = await api.get("/api/tables");
+        if (res.status === 401) {
+          window.location.href = "/login";
+          return;
+        }
         const data = await res.json();
         setTables(data);
       } catch (error) {
@@ -55,11 +60,7 @@ export default function DatabasePage() {
 
   const handleCreateTable = async (tableName: string, schema: any) => {
     try {
-      const res = await fetch("/api/tables", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: tableName, schema }),
-      });
+      const res = await api.post("/api/tables", { name: tableName, schema });
       
       if (!res.ok) {
         const error = await res.json();
@@ -78,9 +79,7 @@ export default function DatabasePage() {
   const handleDeleteTable = async (tableName: string) => {
     if (confirm(`Are you sure you want to delete table "${tableName}"?`)) {
       try {
-        const res = await fetch(`/api/tables/${tableName}`, {
-          method: "DELETE",
-        });
+        const res = await api.delete(`/api/tables/${tableName}`);
         
         if (!res.ok) {
           throw new Error("Failed to delete table");

@@ -3,6 +3,7 @@
 import { CSSProperties, useState, useEffect } from "react";
 import { Header } from "@/components/layout";
 import { Card, Button, Badge, useToast } from "@/components/ui";
+import { api } from "@/lib/api";
 
 interface QueryResult {
   columns: string[];
@@ -96,11 +97,12 @@ export default function SQLPage() {
     setResult(null);
 
     try {
-      const res = await fetch("/api/sql/execute", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query: query.trim() }),
-      });
+      const res = await api.post("/api/sql/execute", { query: query.trim() });
+      
+      if (res.status === 401) {
+        window.location.href = "/login";
+        return;
+      }
       
       const data = await res.json();
       

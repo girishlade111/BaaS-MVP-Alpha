@@ -1,0 +1,69 @@
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/db";
+
+// POST /api/functions/[id]/invoke - Invoke a function
+export async function POST(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+    const body = await request.json();
+    const { input } = body;
+
+    const fn = await prisma.edgeFunction.findUnique({
+      where: { id },
+    });
+
+    if (!fn) {
+      return NextResponse.json(
+        { error: "Function not found" },
+        { status: 404 }
+      );
+    }
+
+    // In a real implementation, you would execute the function
+    // For now, we'll simulate execution
+    const startTime = Date.now();
+    const mockResponse = {
+      status: 200,
+      body: { success: true, message: "Function executed successfully" },
+    };
+    const duration = Date.now() - startTime;
+
+    // Log the invocation
+    await prisma.functionLog.create({
+      data: {
+        functionId: id,
+        duration,
+        success: true,
+        response: mockResponse,
+      },
+    });
+
+    return NextResponse.json({
+      ...mockResponse,
+      duration,
+    });
+  } catch (error) {
+    console.error("Failed to invoke function:", error);
+    
+    // Log the failed invocation
+    try {
+      const { id } = await params;
+      await prisma.functionLog.create({
+        data: {
+          functionId: id,
+          duration: 0,
+          success: false,
+          response: { error: "Function execution failed" },
+        },
+      });
+    } catch {}
+
+    return NextResponse.json(
+      { error: "Failed to invoke function" },
+      { status: 500 }
+    );
+  }
+}

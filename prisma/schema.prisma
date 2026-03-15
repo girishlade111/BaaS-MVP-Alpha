@@ -1,0 +1,56 @@
+// This is your Prisma schema file
+// Learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model Table {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  schema    String   // Stored as JSON string
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model QueryHistory {
+  id            String   @id @default(uuid())
+  query         String
+  executedAt    DateTime @default(now())
+  duration      Int
+  rowsReturned  Int
+}
+
+model StorageFile {
+  id        String   @id @default(uuid())
+  name      String
+  path      String
+  size      Int
+  mimeType  String
+  uploadedAt DateTime @default(now())
+}
+
+model EdgeFunction {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  code      String
+  status    String   @default("deployed")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  logs      FunctionLog[]
+}
+
+model FunctionLog {
+  id        String   @id @default(uuid())
+  function  EdgeFunction @relation(fields: [functionId], references: [id], onDelete: Cascade)
+  functionId String
+  invokedAt DateTime @default(now())
+  duration  Int
+  success   Boolean
+  response  String   // Stored as JSON string
+}

@@ -43,6 +43,9 @@ export default function LoginPage() {
 
       sessionStorage.setItem("project_id", data.project.projectId);
       sessionStorage.setItem("project_name", data.project.name);
+      
+      // Set auth cookie for middleware
+      document.cookie = "baas_auth=authenticated; path=/";
 
       router.push("/dashboard");
     } catch (err) {

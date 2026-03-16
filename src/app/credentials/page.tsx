@@ -17,6 +17,8 @@ export default function CredentialsPage() {
     if (projectId && projectName) {
       sessionStorage.setItem("project_id", projectId);
       sessionStorage.setItem("project_name", projectName);
+      // Set auth cookie for middleware
+      document.cookie = "baas_auth=authenticated; path=/";
     } else {
       router.push("/");
     }

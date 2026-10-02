@@ -1,36 +1,80 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# BaaS-MVP-Alpha — Backend-as-a-Service Dashboard (MVP)
 
-## Getting Started
+A minimal Backend-as-a-Service (BaaS) platform MVP, codenamed **DevDB**, built with Next.js (App Router). It gives developers a quick backend environment without server setup: manage projects, SQL tables, edge functions, file storage, and project credentials through a clean dark dashboard UI.
 
-First, run the development server:
+## Features
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+- **Projects** — create and manage backend projects; per-project auth and credentials
+- **Database** — table browser with row-level CRUD via REST API
+- **SQL console** — execute raw SQL against the project's SQLite database
+- **Edge functions** — create, edit, invoke, and delete serverless functions
+- **File storage** — upload, list, and delete stored files (local filesystem, S3-compatible configurable)
+- **Dashboard stats** — overview of projects, tables, functions, and storage
+- **Auth** — cookie-based login with middleware-protected dashboard routes
+
+## Tech stack
+
+- **Framework:** Next.js 16 (App Router), React 19, TypeScript
+- **Database:** SQLite via `better-sqlite3`, accessed through Prisma 5 (`@prisma/client`)
+- **Remote adapter:** `@prisma/adapter-libsql` (Turso/LibSQL support)
+- **Styling:** Tailwind CSS v4 (PostCSS)
+- **Linting:** ESLint 9 with `eslint-config-next`
+
+## Project structure
+
+```
+src/
+  app/                 # App Router pages + API routes
+    api/               # REST endpoints: projects, tables, sql, functions, storage, auth
+    create|dashboard|database|functions|sql|storage|credentials|settings|login
+  components/ui/       # Badge, Button, Card, Input, Modal, Table, Toast
+  components/layout/   # Header, Sidebar
+  contexts/            # AuthContext
+  lib/                 # api client, auth, db, prisma helpers
+prisma/
+  schema.prisma        # data model
+  dev.db               # local SQLite database
+SPEC.md                # original technical specification
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Quick start
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+npm install
+npm run dev        # dev server at http://localhost:3000
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Environment: set these in `.env` before running (remote DB optional):
 
-## Learn More
+```bash
+# Local SQLite (default)
+DATABASE_URL="file:./dev.db"
+# Or a Turso/LibSQL remote database
+# DATABASE_URL="libsql://<your-db>.turso.io"
+# DATABASE_AUTH_TOKEN="<your-auth-token>"
+```
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+npx prisma generate      # generate Prisma client
+npx prisma db push       # create tables from schema
+npm run build && npm start   # production build + serve
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## API surface
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- `GET/POST /api/projects`, `GET/DELETE /api/projects/me`, `POST /api/projects/auth`
+- `GET/POST /api/tables`, `GET/PUT/DELETE /api/tables/[name]`, `GET/POST/DELETE /api/tables/[name]/data`
+- `POST /api/sql/execute` — run raw SQL
+- `GET/POST /api/functions`, `GET/PUT/DELETE /api/functions/[id]`, `POST /api/functions/[id]/invoke`
+- `GET/POST /api/storage`, `GET/DELETE /api/storage/[id]`
 
-## Deploy on Vercel
+## Deploy notes
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+The app is server-rendered with API routes and a database, so it cannot be
+statically exported. Deploy to a platform that supports Node.js server
+functions (e.g. Netlify) with a real `DATABASE_URL` / auth token set —
+do not ship the local `dev.db` to production.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+---
+
+Built by Girish Lade — https://ladestack.in
